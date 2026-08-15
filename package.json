@@ -49,11 +49,11 @@
   "author": "wilond",
   "repository": {
     "type": "git",
-    "url": "https://github.com/wilond/dsh-news.git"
+    "url": "https://github.com/SongChengMing1/dsh-news.git"
   },
-  "homepage": "https://github.com/wilond/dsh-news#readme",
+  "homepage": "https://github.com/SongChengMing1/dsh-news#readme",
   "bugs": {
-    "url": "https://github.com/wilond/dsh-news/issues"
+    "url": "https://github.com/SongChengMing1/dsh-news/issues"
   },
   "scripts": {
     "build": "tsdown",
