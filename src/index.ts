@@ -19,10 +19,11 @@ import { createRouteCaches, makeRoutes } from './host/routes.ts'
 // Re-export shared vocabulary for package consumers and tooling.
 export { BUILTIN_SOURCES, findBuiltinSource } from './shared/sources.ts'
 export { NEWS_CATEGORIES, isNewsCategory } from './shared/types.ts'
-export type { ArticleResponse, FeedResponse, NewsCategory, NewsItem, NewsSource } from './shared/types.ts'
+export type { ArticleResponse, FeedResponse, NewsCategory, NewsItem, NewsSource, TranslateResponse } from './shared/types.ts'
 export { createRouteCaches, makeRoutes } from './host/routes.ts'
 export { DiskCache, MemoryCache } from './host/cache.ts'
 export { fetchFeed } from './host/rss.ts'
+export { chunkText, parseGtxResponse, translateText, TRANSLATE_TTL } from './host/translate.ts'
 
 /** Order of the announcement section within the tool-guidance band. */
 const SECTION_ORDER = 200
@@ -40,7 +41,7 @@ const DEFAULT_ANNOUNCE = true
 
 /** Model-facing announcement: plugin presence, capabilities, and limits. */
 const NEWS_GUIDANCE =
-  '本机已安装 dsh-news 插件（DSH Web GUI 新闻聚合）：侧边栏「新闻 / News」入口，弹窗聚合浏览国际新闻、知识科普、历史科普、AI 大模型新闻。能力：RSS 抓取解析（内置 17 个公开源，可自定义）、正文站内阅读（Readability 提取 + 白名单清洗）、图片代理（防盗链）、内存 + 磁盘缓存（feed 15 分钟 / 正文 24 小时 / 图片 7 天）、SSRF 防护与并发限流。限制：列表与正文仅为临时阅读缓存，不做永久存档或再分发；部分源可能因站方改版或反爬暂时失败，可在设置中禁用。用户提到「新闻 / News / 看新闻」时即指本插件，请引导用户在侧边栏「新闻」入口查看。'
+  '本机已安装 dsh-news 插件（DSH Web GUI 新闻聚合）：侧边栏「新闻 / News」入口，弹窗聚合浏览国际新闻、知识科普、历史科普、AI 大模型新闻。能力：RSS 抓取解析（内置 17 个公开源，可自定义）、正文站内阅读（Readability 提取 + 白名单清洗）、列表卡片与正文标题/全文的中英翻译（Google 免费接口，跟随 GUI 语言，24 小时缓存）、图片代理（防盗链）、内存 + 磁盘缓存（feed 15 分钟 / 正文 24 小时 / 图片 7 天）、SSRF 防护与并发限流。限制：列表与正文仅为临时阅读缓存，不做永久存档或再分发；澎湃新闻、科普中国、知乎日报、机器之心、36氪 5 个源因站方反爬/改版默认关闭，可在设置中重新开启；翻译走第三方免费接口，可能因限流或网络失败，按需触发、不保证可用。用户提到「新闻 / News / 看新闻」时即指本插件，请引导用户在侧边栏「新闻」入口查看。'
 
 /** Default cache root under the user's home. */
 export function defaultCacheDir(): string {
@@ -65,7 +66,7 @@ export function apply(ctx: Context, config?: { announceToAgent?: boolean; enable
 
   // Periodic disk-cache sweep (startup + hourly).
   const sweep = (): void => {
-    for (const disk of [caches.feedDisk, caches.articleDisk, caches.imgDisk]) {
+    for (const disk of [caches.feedDisk, caches.articleDisk, caches.imgDisk, caches.translateDisk]) {
       try {
         disk.sweep()
       } catch {

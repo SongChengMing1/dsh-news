@@ -1,5 +1,6 @@
 import { describe, expect, it, beforeEach } from 'vitest'
 import { DEFAULT_CONFIG, loadConfig, normalizeConfig, saveConfig, CONFIG_KEY } from '../../src/client/config'
+import { DEFAULT_DISABLED_SOURCE_IDS } from '../../src/shared/sources'
 
 /** Minimal localStorage stand-in (jsdom-free node env). */
 function installLocalStorage(): void {
@@ -17,6 +18,19 @@ describe('normalizeConfig', () => {
     expect(normalizeConfig(null)).toEqual(DEFAULT_CONFIG)
     expect(normalizeConfig('nope')).toEqual(DEFAULT_CONFIG)
     expect(normalizeConfig(42)).toEqual(DEFAULT_CONFIG)
+  })
+
+  it('defaults to the problematic-source blacklist', () => {
+    for (const id of DEFAULT_DISABLED_SOURCE_IDS) {
+      expect(DEFAULT_CONFIG.disabledSources).toContain(id)
+    }
+    // The five known-broken feeds are the only defaults.
+    expect(DEFAULT_CONFIG.disabledSources).toHaveLength(5)
+  })
+
+  it('a stored disabledSources list overrides the defaults', () => {
+    const config = normalizeConfig({ disabledSources: [] })
+    expect(config.disabledSources).toEqual([])
   })
 
   it('drops malformed custom sources and disabled ids', () => {
@@ -52,6 +66,7 @@ describe('localStorage persistence', () => {
       imageProxy: false,
       ttlMinutes: 30,
       summaryOnly: false,
+      autoTranslateList: true,
     }
     saveConfig(config)
     expect(loadConfig()).toEqual(config)

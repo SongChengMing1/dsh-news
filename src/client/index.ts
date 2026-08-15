@@ -63,6 +63,7 @@ export function apply(ctx: Context): void {
     disposers.push(mountModal(controller, t, {
       getRevision: () => ctx.locale.getSnapshot().revision,
       subscribe: (fn) => ctx.locale.subscribe(fn),
+      getLocale: () => ctx.locale.getSnapshot().active,
     }))
   } catch (error) {
     // DOM failures degrade the entry/modal, never the GUI.

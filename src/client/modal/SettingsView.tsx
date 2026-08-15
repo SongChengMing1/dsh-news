@@ -39,6 +39,7 @@ export function SettingsView(props: SettingsViewProps): ReturnType<typeof create
     imageProxy: config.imageProxy ?? true,
     ttlMinutes: config.ttlMinutes ?? 15,
     summaryOnly: config.summaryOnly ?? false,
+    autoTranslateList: config.autoTranslateList ?? false,
   }))
   const [newSource, setNewSource] = useState<typeof EMPTY_SOURCE>({ ...EMPTY_SOURCE })
   const [formError, setFormError] = useState<string>('')
@@ -105,6 +106,7 @@ export function SettingsView(props: SettingsViewProps): ReturnType<typeof create
       imageProxy: draft.imageProxy,
       ttlMinutes: draft.ttlMinutes,
       summaryOnly: draft.summaryOnly,
+      autoTranslateList: draft.autoTranslateList ?? false,
     })
     setSaved(true)
     window.setTimeout(() => setSaved(false), 1500)

@@ -8,7 +8,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import z from '@deepseek-ai/schemastery'
 import type { WebRoute } from '@deepseek-ai/dsh-host-webserver'
-import type { ArticleResponse, FeedResponse, NewsItem, NewsSource } from '../shared/types.ts'
+import type { ArticleResponse, FeedResponse, NewsItem, NewsSource, TranslateResponse } from '../shared/types.ts'
 import { isNewsCategory } from '../shared/types.ts'
 import { DiskCache, MemoryCache } from './cache.ts'
 import { FetchError, SSRFError } from './fetcher.ts'
@@ -16,6 +16,7 @@ import { assertSafeUrl } from './guard.ts'
 import { extractArticle } from './article.ts'
 import { proxyImage } from './image.ts'
 import { fetchFeed } from './rss.ts'
+import { translateText, type TranslateResult } from './translate.ts'
 
 /** Cache TTLs (ms). */
 export const FEED_TTL = 15 * 60 * 1000
@@ -38,8 +39,14 @@ const SourceSchema = z.object({
 
 const FeedBodySchema = z.object({
   sources: z.array(SourceSchema).min(1).max(64),
-  ttlMinutes: z.number().min(1).max(1440),
+  // 0 = force refresh (bypass caches); 1..1440 = TTL in minutes.
+  ttlMinutes: z.number().min(0).max(1440),
   imageProxy: z.boolean(),
+})
+
+const TranslateBodySchema = z.object({
+  text: z.string().min(1).max(200_000),
+  to: z.string().min(2).max(16),
 })
 
 /** Caches shared by all routes. */
@@ -50,9 +57,11 @@ export interface RouteCaches {
   articleDisk: DiskCache
   imgMem: MemoryCache<Buffer>
   imgDisk: DiskCache
+  translateMem: MemoryCache<TranslateResult>
+  translateDisk: DiskCache
 }
 
-/** Build the cache trio rooted at a cache directory. */
+/** Build the cache set rooted at a cache directory. */
 export function createRouteCaches(cacheDir: string): RouteCaches {
   return {
     feedMem: new MemoryCache<NewsItem[]>(500),
@@ -61,6 +70,8 @@ export function createRouteCaches(cacheDir: string): RouteCaches {
     articleDisk: new DiskCache(join(cacheDir, 'articles')),
     imgMem: new MemoryCache<Buffer>(500),
     imgDisk: new DiskCache(join(cacheDir, 'imgs')),
+    translateMem: new MemoryCache<TranslateResult>(200),
+    translateDisk: new DiskCache(join(cacheDir, 'translations')),
   }
 }
 
@@ -206,6 +217,10 @@ export function makeRoutes(caches: RouteCaches, imageProxyPrefix = '/news/img?u=
         }
         const ttlMs = ttlMinutes * 60 * 1000
         const now = Date.now()
+        // ttlMinutes === 0 is the client's manual "refresh" — bypass the
+        // cache read entirely, but still write fresh data back with the
+        // default TTL so subsequent loads reuse it.
+        const force = ttlMinutes === 0
 
         const results: FeedResponse['sources'] = []
         const items: NewsItem[] = []
@@ -213,22 +228,25 @@ export function makeRoutes(caches: RouteCaches, imageProxyPrefix = '/news/img?u=
         await Promise.all(sources.map(async (source) => {
           const key = `feed:${source.url}`
           try {
-            // Memory cache first, then disk. TTL = min(default, requested).
-            let cached: NewsItem[] | undefined = caches.feedMem.get(key)
-            if (cached === undefined) {
-              const disk = caches.feedDisk.read(key)
-              if (disk !== undefined) {
-                cached = JSON.parse(disk.value.toString('utf8')) as NewsItem[]
+            if (!force) {
+              // Memory cache first, then disk. TTL = min(default, requested).
+              let cached: NewsItem[] | undefined = caches.feedMem.get(key)
+              if (cached === undefined) {
+                const disk = caches.feedDisk.read(key)
+                if (disk !== undefined) {
+                  cached = JSON.parse(disk.value.toString('utf8')) as NewsItem[]
+                }
+              }
+              if (cached !== undefined) {
+                items.push(...cached)
+                results.push({ sourceId: source.id, fetchedAt: new Date(now).toISOString() })
+                return
               }
             }
-            if (cached !== undefined) {
-              items.push(...cached)
-              results.push({ sourceId: source.id, fetchedAt: new Date(now).toISOString() })
-              return
-            }
             const fetched = await fetchFeed(source, imageProxy ? imageProxyPrefix : undefined)
-            // Cache with the route TTL, but honor a smaller client TTL.
-            const expiresAt = now + Math.min(FEED_TTL, ttlMs)
+            // Cache with the route TTL, honoring a smaller client TTL (a
+            // forced refresh always writes with the full default TTL).
+            const expiresAt = now + (force ? FEED_TTL : Math.min(FEED_TTL, ttlMs))
             caches.feedMem.set(key, fetched, expiresAt)
             caches.feedDisk.write(key, Buffer.from(JSON.stringify(fetched), 'utf8'), expiresAt)
             items.push(...fetched)
@@ -359,6 +377,34 @@ export function makeRoutes(caches: RouteCaches, imageProxyPrefix = '/news/img?u=
           } else {
             writeJson(res, 502, { error: error instanceof Error ? error.message : 'image fetch failed' })
           }
+        }
+      },
+    },
+    {
+      kind: 'exact',
+      path: '/news/translate',
+      handler: async (req, res) => {
+        if (!guard(req, res, 'POST')) return
+        const body = await readJsonBody(req)
+        let text: string
+        let to: string
+        try {
+          // z.object fields are optional in schemastery, so a missing body
+          // parses "successfully" — require both fields explicitly.
+          const parsed = TranslateBodySchema(body as never) as { text?: string; to?: string }
+          text = parsed.text ?? ''
+          to = parsed.to ?? ''
+          if (text.trim() === '') throw new Error('text is required')
+          if (to.trim() === '') throw new Error('to is required')
+        } catch (error) {
+          writeJson(res, 400, { error: error instanceof Error ? error.message : 'invalid body' })
+          return
+        }
+        try {
+          const result: TranslateResponse = await translateText(text, to, caches.translateMem, caches.translateDisk)
+          writeJson(res, 200, result)
+        } catch (error) {
+          writeJson(res, 502, { error: error instanceof Error ? error.message : 'translation failed' })
         }
       },
     },

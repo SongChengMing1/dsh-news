@@ -2,7 +2,7 @@
  * Client → Host API surface. All routes are same-origin (the web GUI and the
  * /news/* routes share the Host webserver), so plain relative fetch works.
  */
-import type { ArticleResponse, FeedResponse, NewsSource } from '../shared/types.ts'
+import type { ArticleResponse, FeedResponse, NewsSource, TranslateResponse } from '../shared/types.ts'
 
 /** Fetch the aggregated feed (Host caches per source URL). */
 export async function fetchFeed(
@@ -33,4 +33,17 @@ export async function fetchArticle(url: string): Promise<ArticleResponse> {
     throw new Error(`article request failed: ${response.status}`)
   }
   return await response.json() as ArticleResponse
+}
+
+/** Translate a plain-text article body into a target language (Host caches). */
+export async function translateArticle(text: string, to: string): Promise<TranslateResponse> {
+  const response = await fetch('/news/translate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text, to }),
+  })
+  if (!response.ok) {
+    throw new Error(`translate request failed: ${response.status}`)
+  }
+  return await response.json() as TranslateResponse
 }

@@ -35,6 +35,8 @@ interface AppProps {
   t: TranslateNS<typeof NEWS_NS>
   getLocaleRevision: () => number
   subscribeLocale: (fn: () => void) => () => void
+  /** Read the active GUI locale id ("zh" | "en") at call time. */
+  getLocale: () => string
 }
 
 /** Load the feed through the Host, applying the config's proxy/ttl settings. */
@@ -70,7 +72,7 @@ function useLocaleRevision(getRevision: () => number, subscribe: (fn: () => void
 }
 
 export function NewsApp(props: AppProps): ReturnType<typeof createElement> {
-  const { controller, t, getLocaleRevision, subscribeLocale } = props
+  const { controller, t, getLocaleRevision, subscribeLocale, getLocale } = props
   // Subscribe to the controller so entry clicks re-render the modal, and to
   // the locale revision so language switches re-render it too.
   const open = useSyncExternalStore(
@@ -207,12 +209,20 @@ export function NewsApp(props: AppProps): ReturnType<typeof createElement> {
               t,
               item: activeItem,
               summaryOnly: config.summaryOnly ?? false,
+              getLocale,
               onBack: () => setView('list'),
             })
             : createElement(FeedList, {
               t,
               feed,
               category,
+              getLocale,
+              autoTranslate: config.autoTranslateList ?? false,
+              onToggleAutoTranslate: () => {
+                const next = { ...config, autoTranslateList: !(config.autoTranslateList ?? false) }
+                setConfig(next)
+                saveConfig(next)
+              },
               onOpen: (item) => {
                 setActiveItem(item)
                 setView('reading')

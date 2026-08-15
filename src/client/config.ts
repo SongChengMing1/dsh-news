@@ -4,6 +4,7 @@
  * source list and options ride along with each feed request.
  */
 import type { NewsSource } from '../shared/types.ts'
+import { DEFAULT_DISABLED_SOURCE_IDS } from '../shared/sources.ts'
 
 /** localStorage key. */
 export const CONFIG_KEY = 'dsh.news.config.v1'
@@ -22,24 +23,28 @@ export interface NewsConfig {
   ttlMinutes?: number
   /** Summary-only mode (default false). */
   summaryOnly?: boolean
+  /** Auto-translate list cards as they scroll into view (default false). */
+  autoTranslateList?: boolean
 }
 
 export const DEFAULT_CONFIG: NewsConfig = {
   customSources: [],
-  disabledSources: [],
+  disabledSources: [...DEFAULT_DISABLED_SOURCE_IDS],
   imageProxy: true,
   ttlMinutes: 15,
   summaryOnly: false,
+  autoTranslateList: false,
 }
 
 /** Deep-merge the stored config over the defaults (unknown keys dropped). */
 export function normalizeConfig(raw: unknown): NewsConfig {
   const base: NewsConfig = {
     customSources: [],
-    disabledSources: [],
+    disabledSources: [...DEFAULT_DISABLED_SOURCE_IDS],
     imageProxy: true,
     ttlMinutes: 15,
     summaryOnly: false,
+    autoTranslateList: false,
   }
   if (raw === null || typeof raw !== 'object') return base
   const value = raw as Record<string, unknown>
@@ -57,6 +62,7 @@ export function normalizeConfig(raw: unknown): NewsConfig {
     base.ttlMinutes = value.ttlMinutes
   }
   if (typeof value.summaryOnly === 'boolean') base.summaryOnly = value.summaryOnly
+  if (typeof value.autoTranslateList === 'boolean') base.autoTranslateList = value.autoTranslateList
   return base
 }
 

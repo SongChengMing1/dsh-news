@@ -19,6 +19,8 @@ export const MODAL_SELECTOR = '[data-dsh-news-modal]'
 export interface LocaleRevisionFace {
   getRevision: () => number
   subscribe: (fn: () => void) => () => void
+  /** Read the active GUI locale id at call time (drives translation target). */
+  getLocale: () => string
 }
 
 /**
@@ -48,6 +50,7 @@ export function mountModal(
       t,
       getLocaleRevision: locale.getRevision,
       subscribeLocale: locale.subscribe,
+      getLocale: locale.getLocale,
     }))
   } catch (error) {
     console.error('[dsh-news] modal mount failed:', error)

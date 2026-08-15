@@ -15,6 +15,7 @@ import { FetchError, SSRFError } from '../../src/host/fetcher'
 vi.mock('../../src/host/rss', () => ({ fetchFeed: vi.fn() }))
 vi.mock('../../src/host/article', () => ({ extractArticle: vi.fn() }))
 vi.mock('../../src/host/image', () => ({ proxyImage: vi.fn() }))
+vi.mock('../../src/host/translate', () => ({ translateText: vi.fn() }))
 // Route-level SSRF pre-checks resolve DNS — pin it to a public address so
 // tests never touch the real resolver.
 vi.mock('node:dns', () => ({
@@ -26,6 +27,7 @@ vi.mock('node:dns', () => ({
 import { fetchFeed } from '../../src/host/rss'
 import { extractArticle } from '../../src/host/article'
 import { proxyImage } from '../../src/host/image'
+import { translateText } from '../../src/host/translate'
 
 const source: NewsSource = {
   id: 'src-1',
@@ -112,6 +114,26 @@ describe('/news routes', () => {
       expect(vi.mocked(fetchFeed)).toHaveBeenCalledTimes(1)
     })
 
+    it('force refresh (ttlMinutes: 0) bypasses the cache and refetches', async () => {
+      vi.mocked(fetchFeed).mockResolvedValue([item])
+      const payload = (ttlMinutes: number) => ({
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ sources: [source], ttlMinutes, imageProxy: true }),
+      })
+      // Warm the cache with a normal TTL request.
+      const warm = await fetch(`${base}/news/feed`, payload(15))
+      expect(warm.status).toBe(200)
+      // Manual refresh: ttlMinutes 0 must be accepted (not 400) and must
+      // refetch from the source instead of serving the cached items.
+      const forced = await fetch(`${base}/news/feed`, payload(0))
+      expect(forced.status).toBe(200)
+      const body = await forced.json() as { items: NewsItem[]; sources: Array<{ sourceId: string; error?: string }> }
+      expect(body.items).toHaveLength(1)
+      expect(body.sources[0]?.error).toBeUndefined()
+      expect(vi.mocked(fetchFeed)).toHaveBeenCalledTimes(2)
+    })
+
     it('rejects invalid categories', async () => {
       const response = await fetch(`${base}/news/feed`, {
         method: 'POST',
@@ -144,6 +166,40 @@ describe('/news routes', () => {
     it('rejects non-POST methods', async () => {
       const response = await fetch(`${base}/news/feed`)
       expect(response.status).toBe(405)
+    })
+  })
+
+  describe('POST /news/translate', () => {
+    const payload = (body: unknown) => ({
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+
+    it('translates text through the host service', async () => {
+      vi.mocked(translateText).mockResolvedValueOnce({ text: '你好', detected: 'en', cached: false })
+      const response = await fetch(`${base}/news/translate`, payload({ text: 'hello', to: 'zh-CN' }))
+      expect(response.status).toBe(200)
+      const body = await response.json() as { text: string; detected?: string; cached: boolean }
+      expect(body.text).toBe('你好')
+      expect(body.detected).toBe('en')
+      expect(body.cached).toBe(false)
+      expect(vi.mocked(translateText)).toHaveBeenCalledWith('hello', 'zh-CN', expect.anything(), expect.anything())
+    })
+
+    it('rejects empty text and missing bodies', async () => {
+      const empty = await fetch(`${base}/news/translate`, payload({ text: '', to: 'zh-CN' }))
+      expect(empty.status).toBe(400)
+      const missing = await fetch(`${base}/news/translate`, { method: 'POST' })
+      expect(missing.status).toBe(400)
+    })
+
+    it('reports upstream translation failures as 502', async () => {
+      vi.mocked(translateText).mockRejectedValueOnce(new Error('rate limited'))
+      const response = await fetch(`${base}/news/translate`, payload({ text: 'hello', to: 'zh-CN' }))
+      expect(response.status).toBe(502)
+      const body = await response.json() as { error: string }
+      expect(body.error).toContain('rate limited')
     })
   })
 

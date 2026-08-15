@@ -41,3 +41,17 @@ export const BUILTIN_SOURCES: readonly NewsSource[] = [
 export function findBuiltinSource(id: string): NewsSource | undefined {
   return BUILTIN_SOURCES.find((s) => s.id === id) as NewsSource | undefined
 }
+
+/**
+ * Built-in sources disabled by default. These endpoints currently answer
+ * with HTML (anti-bot / site redesign) instead of a feed — verified live
+ * 2025-08-15 — so leaving them enabled would only produce degradation
+ * banners on every refresh. Users can re-enable them in settings anytime.
+ */
+export const DEFAULT_DISABLED_SOURCE_IDS: readonly string[] = [
+  'thepaper', // 澎湃新闻 — text/html
+  'kepuchina', // 科普中国 — text/html
+  'zhihu-daily', // 知乎日报 — no longer serves a feed
+  'jiqizhixin', // 机器之心 — text/html
+  '36kr', // 36氪 — text/html
+] as const

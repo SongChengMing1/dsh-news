@@ -19,6 +19,12 @@ export const zh = {
   'list.loading': '正在加载新闻…',
   'list.empty': '暂无内容，试试刷新或检查源设置',
   'list.failed': '加载失败，请检查网络或稍后重试',
+  'list.autoTranslate': '翻译列表',
+  'list.autoTranslateOff': '关闭翻译',
+  'list.autoTranslateHint': '滚动时自动翻译',
+  'list.translating': '翻译中…',
+  'list.translateFailed': '翻译失败',
+  'list.retry': '重试',
   'source.failed': '「{name}」暂时无法获取',
   'time.justNow': '刚刚',
   'time.minutesAgo': '{n} 分钟前',
@@ -48,6 +54,10 @@ export const zh = {
   'reading.loading': '正在加载正文…',
   'reading.failed': '正文加载失败',
   'reading.summaryOnly': '仅摘要模式已开启，点击「原文链接」查看全文',
+  'reading.translate': '翻译全文',
+  'reading.translating': '翻译中…',
+  'reading.showOriginal': '显示原文',
+  'reading.translateFailed': '翻译失败，请稍后重试',
 } as const
 
 /** English dictionary (same key union as zh). */
@@ -66,6 +76,12 @@ export const en: Record<keyof typeof zh, string> = {
   'list.loading': 'Loading news…',
   'list.empty': 'Nothing here — try refreshing or check source settings',
   'list.failed': 'Failed to load. Check your network and try again.',
+  'list.autoTranslate': 'Translate list',
+  'list.autoTranslateOff': 'Stop translating',
+  'list.autoTranslateHint': 'Auto-translates as you scroll',
+  'list.translating': 'Translating…',
+  'list.translateFailed': 'Translation failed',
+  'list.retry': 'Retry',
   'source.failed': '“{name}” is temporarily unavailable',
   'time.justNow': 'just now',
   'time.minutesAgo': '{n} min ago',
@@ -95,6 +111,10 @@ export const en: Record<keyof typeof zh, string> = {
   'reading.loading': 'Loading article…',
   'reading.failed': 'Failed to load article',
   'reading.summaryOnly': 'Summary-only mode is on — open the original link for the full text',
+  'reading.translate': 'Translate',
+  'reading.translating': 'Translating…',
+  'reading.showOriginal': 'Show original',
+  'reading.translateFailed': 'Translation failed — try again later',
 }
 
 /** Locale key union for the news namespace. */

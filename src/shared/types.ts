@@ -112,3 +112,13 @@ export interface ImgResponseMeta {
   /** True when served from cache. */
   cached: boolean
 }
+
+/** The `/news/translate` route response. */
+export interface TranslateResponse {
+  /** Translated text (paragraph structure preserved). */
+  text: string
+  /** Source language detected by the service (e.g. "en", "zh-CN"). */
+  detected?: string
+  /** True when served from cache. */
+  cached: boolean
+}
