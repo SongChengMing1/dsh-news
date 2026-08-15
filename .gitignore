@@ -1,0 +1,11 @@
+# 规划文档目录（讨论稿、方案稿，不入库）
+.plan/
+
+# Node
+node_modules/
+dist/
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
