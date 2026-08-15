@@ -209,6 +209,7 @@ export function NewsApp(props: AppProps): ReturnType<typeof createElement> {
               t,
               item: activeItem,
               summaryOnly: config.summaryOnly ?? false,
+              autoTranslate: config.autoTranslateList ?? false,
               getLocale,
               onBack: () => setView('list'),
             })

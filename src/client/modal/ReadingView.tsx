@@ -17,6 +17,8 @@ interface ReadingViewProps {
   t: TranslateNS<typeof NEWS_NS>
   item: NewsItem
   summaryOnly: boolean
+  /** Translate automatically once the body loads (list master switch on). */
+  autoTranslate: boolean
   /** Read the active GUI locale id ("zh" | "en") at call time. */
   getLocale: () => string
   onBack: () => void
@@ -105,7 +107,7 @@ function attachImageFallback(container: HTMLElement | null): (() => void) | unde
 }
 
 export function ReadingView(props: ReadingViewProps): ReturnType<typeof createElement> {
-  const { t, item, summaryOnly, getLocale, onBack } = props
+  const { t, item, summaryOnly, autoTranslate, getLocale, onBack } = props
   const [state, setState] = useState<ArticleState>({ status: 'loading', title: item.title, html: '' })
   const [translation, setTranslation] = useState<TranslationState>({ status: 'idle' })
   const [showingTranslation, setShowingTranslation] = useState(false)
@@ -133,6 +135,17 @@ export function ReadingView(props: ReadingViewProps): ReturnType<typeof createEl
   }, [item, summaryOnly])
 
   useEffect(() => attachImageFallback(containerRef.current), [state.status])
+
+  // Auto-translate when the list master switch is on: fire as soon as the
+  // article body loads, without a manual click. Idempotent — the status
+  // guard skips once translating/ok/failed, and failures stay manual.
+  useEffect(() => {
+    if (!autoTranslate) return
+    if (state.status !== 'ok' || state.html === '') return
+    if (translation.status !== 'idle') return
+    onToggleTranslate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoTranslate, state.status, translation.status])
 
   // Inject the scoped article stylesheet while this view is mounted.
   useEffect(() => {

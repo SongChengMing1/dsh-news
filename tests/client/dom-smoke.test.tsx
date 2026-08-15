@@ -114,6 +114,9 @@ function buildShell(): { root: HTMLElement; column: HTMLElement } {
 
 afterEach(() => {
   vi.unstubAllGlobals()
+  // The master switch persists to localStorage via saveConfig — reset it so
+  // tests never inherit the previous test's translation state.
+  window.localStorage.clear()
   document.body.innerHTML = ''
 })
 
@@ -273,5 +276,24 @@ describe('modal mount', () => {
     await tick(40)
     expect(container.textContent).toContain('First paragraph.')
     expect(container.textContent).not.toContain('译:')
+  })
+
+  it('auto-translates the opened article when the list switch is on', async () => {
+    stubHost()
+    const container = await openWithFeed()
+
+    // Enable the master switch in the list first.
+    findButton(container, '翻译列表')?.click()
+    await tick(40)
+
+    // Open the article — translation fires by itself (no manual click).
+    container.querySelector<HTMLElement>('[role="button"]')?.click()
+    await tick(60)
+    expect(container.textContent).toContain('译:Hello AI')
+    expect(container.textContent).toContain('译:First paragraph.')
+
+    // The toggle is available to flip back to the original.
+    const showOriginal = findButton(container, '显示原文')
+    expect(showOriginal).not.toBeUndefined()
   })
 })
