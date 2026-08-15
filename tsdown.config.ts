@@ -43,7 +43,7 @@ export default defineConfig([
   },
   {
     name: 'client',
-    entry: { client: 'src/client.ts' },
+    entry: { client: 'src/client/index.ts' },
     format: 'cjs',
     platform: 'browser',
     outDir: 'lib',

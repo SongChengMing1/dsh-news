@@ -1,13 +1,15 @@
 /**
- * dsh-news Client half.
+ * Sidebar entry injection.
  *
- * Milestone M1 skeleton: a placeholder sidebar entry row (plain DOM, no
- * React tree) injected next to the shell's New Session button, with the
- * MutationObserver self-heal pattern proven by the task-board/ssh family.
- * Clicking the entry logs for now; milestone M3 replaces the body with the
- * modal (list / reading / settings views).
+ * Follows the task-board/ssh family pattern: a plain-DOM row injected next
+ * to the shell's New Session button, self-healing through a MutationObserver
+ * (re-inserted in the same frame, before paint, so no flicker). The row
+ * toggles the news modal through the shared controller and reflects the
+ * open state with an active highlight.
  */
-import type { Context } from '@deepseek-ai/cordis'
+import type { NewsModalController } from './modal-controller.ts'
+import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
+import { NEWS_NS } from './locales.ts'
 
 /** Stable data attribute identifying the injected entry row. */
 export const ENTRY_SELECTOR = '[data-dsh-news-entry]'
@@ -34,7 +36,7 @@ function newSessionButton(root: HTMLElement): HTMLButtonElement | undefined {
 }
 
 /** Build the entry row (a detached button; insert once the shell is up). */
-function createEntry(): HTMLButtonElement {
+function createEntry(controller: NewsModalController, t: TranslateNS<typeof NEWS_NS>): HTMLButtonElement {
   const entry = document.createElement('button')
   entry.type = 'button'
   entry.dataset.dshNewsEntry = ''
@@ -51,12 +53,9 @@ function createEntry(): HTMLButtonElement {
     'cursor:pointer',
     'border-radius:6px',
   ].join(';')
-  entry.setAttribute('aria-label', '新闻 / News')
-  entry.innerHTML = `<span style="display:inline-flex;flex:none">${ICON}</span><span>新闻 / News</span>`
-  entry.addEventListener('click', () => {
-    // M3: toggle the news modal.
-    console.log('[dsh-news] entry clicked (placeholder)')
-  })
+  entry.setAttribute('aria-label', t('entry.label'))
+  entry.innerHTML = `<span style="display:inline-flex;flex:none">${ICON}</span><span>${t('entry.label')}</span>`
+  entry.addEventListener('click', () => { controller.toggle() })
   return entry
 }
 
@@ -83,13 +82,15 @@ function placeEntry(root: HTMLElement, entry: HTMLButtonElement): boolean {
 /**
  * Mount the sidebar entry, waiting for the shell to render and self-healing
  * on later React re-renders.
+ * @param controller - the modal controller the entry toggles.
+ * @param t - bound translation function (label reads the active locale).
  * @returns disposer removing the entry and its observers.
  */
-export function mountSidebarEntry(): () => void {
+export function mountSidebarEntry(controller: NewsModalController, t: TranslateNS<typeof NEWS_NS>): () => void {
   if (typeof document !== 'undefined' && document.querySelector(ENTRY_SELECTOR) !== null) {
     return () => {}
   }
-  const entry = createEntry()
+  const entry = createEntry(controller, t)
   let root: HTMLElement | undefined
   let placed = false
 
@@ -127,26 +128,22 @@ export function mountSidebarEntry(): () => void {
     }
   })
 
+  // Reflect the modal's open state on the row (active highlight). Assigning
+  // undefined to dataset.active materializes data-active="undefined" — delete
+  // the attribute instead.
+  const syncActive = (): void => {
+    if (controller.isOpen()) entry.dataset.active = 'true'
+    else delete entry.dataset.active
+  }
+  const unsubscribe = controller.subscribe(syncActive)
+  syncActive()
+
   tryPlace()
 
   return () => {
     waitObserver.disconnect()
     rootObserver.disconnect()
+    unsubscribe()
     entry.remove()
-  }
-}
-
-export const inject: string[] = []
-
-/**
- * Client plugin body.
- * @param ctx - client root context.
- */
-export function apply(ctx: Context): void {
-  try {
-    ctx.effect(() => mountSidebarEntry(), 'dsh-news: sidebar entry')
-  } catch (error) {
-    // DOM failures degrade the entry, never the GUI.
-    console.error('[dsh-news] sidebar mount failed:', error)
   }
 }

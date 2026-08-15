@@ -39,6 +39,7 @@ const SourceSchema = z.object({
 const FeedBodySchema = z.object({
   sources: z.array(SourceSchema).min(1).max(64),
   ttlMinutes: z.number().min(1).max(1440),
+  imageProxy: z.boolean(),
 })
 
 /** Caches shared by all routes. */
@@ -193,10 +194,12 @@ export function makeRoutes(caches: RouteCaches, imageProxyPrefix = '/news/img?u=
         const body = await readJsonBody(req)
         let sources: NewsSource[]
         let ttlMinutes = 15
+        let imageProxy = true
         try {
-          const parsed = FeedBodySchema(body as never) as { sources: NewsSource[]; ttlMinutes?: number }
+          const parsed = FeedBodySchema(body as never) as { sources: NewsSource[]; ttlMinutes?: number; imageProxy?: boolean }
           sources = validateSources(body)
           ttlMinutes = parsed.ttlMinutes ?? 15
+          imageProxy = parsed.imageProxy ?? true
         } catch (error) {
           writeJson(res, 400, { error: error instanceof Error ? error.message : 'invalid body' })
           return
@@ -223,7 +226,7 @@ export function makeRoutes(caches: RouteCaches, imageProxyPrefix = '/news/img?u=
               results.push({ sourceId: source.id, fetchedAt: new Date(now).toISOString() })
               return
             }
-            const fetched = await fetchFeed(source, imageProxyPrefix)
+            const fetched = await fetchFeed(source, imageProxy ? imageProxyPrefix : undefined)
             // Cache with the route TTL, but honor a smaller client TTL.
             const expiresAt = now + Math.min(FEED_TTL, ttlMs)
             caches.feedMem.set(key, fetched, expiresAt)
