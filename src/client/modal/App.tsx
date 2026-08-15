@@ -71,7 +71,12 @@ function useLocaleRevision(getRevision: () => number, subscribe: (fn: () => void
 
 export function NewsApp(props: AppProps): ReturnType<typeof createElement> {
   const { controller, t, getLocaleRevision, subscribeLocale } = props
-  const open = controller.isOpen()
+  // Subscribe to the controller so entry clicks re-render the modal, and to
+  // the locale revision so language switches re-render it too.
+  const open = useSyncExternalStore(
+    (onChange) => controller.subscribe(onChange),
+    () => controller.isOpen(),
+  )
   useLocaleRevision(getLocaleRevision, subscribeLocale)
 
   const [view, setView] = useState<View>('list')
