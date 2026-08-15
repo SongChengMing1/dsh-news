@@ -6,6 +6,15 @@ node_modules/
 dist/
 *.log
 
+# 本机构建产物（npm publish 前由 CI/本地构建生成）
+lib/
+
+# 本机 pnpm store/cache 与参考包下载（机器相关，不入库）
+.pnpm-store/
+.pnpm-cache/
+.tmp-ref/
+.npmrc
+
 # 系统文件
 .DS_Store
 Thumbs.db

@@ -1,0 +1,9 @@
+# pnpm 11 workspace settings.
+# Single-package workspace; the file mainly carries the build-script
+# allowlist that pnpm 11 requires (esbuild's postinstall downloads its
+# platform binary).
+packages:
+  - '.'
+
+allowBuilds:
+  esbuild: true
