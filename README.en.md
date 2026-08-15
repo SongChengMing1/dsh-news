@@ -14,6 +14,10 @@ A news plugin for the DSH Web GUI: a sidebar entry opens a modal that aggregates
 
 ![DSH Web GUI](https://img.shields.io/badge/dsh-web--gui-blue) ![License](https://img.shields.io/badge/license-BSD--3--Clause-green) ![npm](https://img.shields.io/npm/v/@wilond/dsh-news)
 
+### Preview
+
+![dsh-news card list UI](img.png)
+
 ---
 
 ## Table of Contents
