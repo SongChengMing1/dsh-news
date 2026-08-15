@@ -8,7 +8,7 @@
 import Parser from 'rss-parser'
 import * as cheerio from 'cheerio'
 import type { NewsItem, NewsSource } from '../shared/types.ts'
-import { fetchWithRetry, globalLimiter } from './fetcher.ts'
+import { FetchError, fetchWithRetry, globalLimiter } from './fetcher.ts'
 
 /** Raw parsed item (pre-normalization), either from rss-parser or the fallback. */
 interface RawItem {
@@ -160,7 +160,16 @@ export async function fetchFeed(
   }))
 
   const text = fetched.body.toString('utf8')
+  // Anti-bot / captive pages return HTML instead of a feed — fail loudly so
+  // the per-source degradation path reports the real cause.
+  const trimmed = text.trimStart()
+  if (!trimmed.startsWith('<?xml') && !trimmed.startsWith('<rss') && !trimmed.startsWith('<feed') && !trimmed.startsWith('<RDF')) {
+    throw new FetchError('NOT_FEED', `response is not a feed (${fetched.headers['content-type'] ?? 'unknown content-type'})`)
+  }
   const rawItems = await parseFeedXml(text)
+  if (rawItems.length === 0) {
+    throw new FetchError('EMPTY', 'feed contains no items')
+  }
 
   const items: NewsItem[] = []
   const seen = new Set<string>()

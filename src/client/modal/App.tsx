@@ -9,6 +9,7 @@
 import { createElement, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import { BUILTIN_SOURCES } from '../../shared/sources.ts'
+import type { NewsItem } from '../../shared/types.ts'
 import type { NewsConfig } from '../config.ts'
 import { loadConfig, saveConfig } from '../config.ts'
 import { fetchFeed } from '../api.ts'
@@ -17,6 +18,7 @@ import type { NewsModalController } from '../modal-controller.ts'
 import { NEWS_NS, type NewsKey } from '../locales.ts'
 import { SettingsView } from './SettingsView.tsx'
 import { FeedList } from './FeedList.tsx'
+import { ReadingView } from './ReadingView.tsx'
 import {
   bodyStyle,
   headerStyle,
@@ -26,7 +28,7 @@ import {
   tabStyle,
 } from './styles.ts'
 
-export type View = 'list' | 'settings'
+export type View = 'list' | 'reading' | 'settings'
 
 interface AppProps {
   controller: NewsModalController
@@ -76,6 +78,7 @@ export function NewsApp(props: AppProps): ReturnType<typeof createElement> {
   const [category, setCategory] = useState<string>('all')
   const [config, setConfig] = useState<NewsConfig>(() => loadConfig())
   const [feed, setFeed] = useState<FeedState>(EMPTY_FEED)
+  const [activeItem, setActiveItem] = useState<NewsItem | undefined>(undefined)
 
   const configRef = useRef(config)
   configRef.current = config
@@ -194,13 +197,23 @@ export function NewsApp(props: AppProps): ReturnType<typeof createElement> {
               saveConfig(next)
             },
           })
-          : createElement(FeedList, {
-            t,
-            feed,
-            category,
-            onOpen: () => {/* M4: reading view */},
-            onRetry: () => doLoad(true),
-          }),
+          : view === 'reading' && activeItem !== undefined
+            ? createElement(ReadingView, {
+              t,
+              item: activeItem,
+              summaryOnly: config.summaryOnly ?? false,
+              onBack: () => setView('list'),
+            })
+            : createElement(FeedList, {
+              t,
+              feed,
+              category,
+              onOpen: (item) => {
+                setActiveItem(item)
+                setView('reading')
+              },
+              onRetry: () => doLoad(true),
+            }),
       ),
     ),
   )
