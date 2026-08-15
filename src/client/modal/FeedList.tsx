@@ -3,7 +3,7 @@
  * time and thumbnail; loading skeleton, empty state, full-failure state and
  * per-source degradation banners.
  */
-import { createElement } from 'react'
+import { createElement, useState } from 'react'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { NewsItem } from '../../shared/types.ts'
 import { NEWS_NS } from '../locales.ts'
@@ -37,14 +37,16 @@ function timeLabel(t: TranslateNS<typeof NEWS_NS>, minutes: number | undefined):
   return t('time.daysAgo', { n: String(Math.floor(minutes / 1440)) })
 }
 
-function Thumb(props: { item: NewsItem; t: TranslateNS<typeof NEWS_NS> }): ReturnType<typeof createElement> | null {
+function Thumb(props: { item: NewsItem }): ReturnType<typeof createElement> | null {
   const { item } = props
-  if (item.image === undefined || item.image === '') return null
+  const [broken, setBroken] = useState(false)
+  if (item.image === undefined || item.image === '' || broken) return null
   return createElement('img', {
     src: item.image,
     alt: '',
     style: thumbStyle,
     loading: 'lazy',
+    onError: () => setBroken(true),
   })
 }
 
@@ -54,7 +56,12 @@ function Card(props: { item: NewsItem; t: TranslateNS<typeof NEWS_NS>; onOpen: (
   const time = timeLabel(t, relativeTime(item.pubDate))
   return createElement(
     'div',
-    { style: cardStyle, onClick: onOpen, role: 'button', tabIndex: 0 },
+    { style: cardStyle, onClick: onOpen, role: 'button', tabIndex: 0, onKeyDown: (event: { key: string; preventDefault: () => void }) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault()
+        onOpen()
+      }
+    } },
     createElement(
       'div',
       { style: { flex: '1 1 auto', minWidth: 0 } },
@@ -70,7 +77,7 @@ function Card(props: { item: NewsItem; t: TranslateNS<typeof NEWS_NS>; onOpen: (
         : null,
       time !== '' ? createElement('div', { style: timeStyle }, time) : null,
     ),
-    createElement(Thumb, { item, t }),
+    createElement(Thumb, { item }),
   )
 }
 
@@ -118,6 +125,10 @@ export function FeedList(props: FeedListProps): ReturnType<typeof createElement>
   }
 
   const items = filterByCategory(feed, category)
+  // Render cap: protects the DOM when many sources are enabled (the Host
+  // already caps per-source items at 50).
+  const RENDER_CAP = 300
+  const rendered = items.slice(0, RENDER_CAP)
 
   if (items.length === 0 && !feed.loading) {
     return createElement(
@@ -149,6 +160,6 @@ export function FeedList(props: FeedListProps): ReturnType<typeof createElement>
         ),
       )
       : null,
-    items.map((item) => createElement(Card, { key: item.link, item, t, onOpen: () => onOpen(item) })),
+    rendered.map((item) => createElement(Card, { key: item.link, item, t, onOpen: () => onOpen(item) })),
   )
 }
