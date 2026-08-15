@@ -12,6 +12,7 @@ lib/
 # 本机 pnpm store/cache 与参考包下载（机器相关，不入库）
 .pnpm-store/
 .pnpm-cache/
+.npm-cache/
 .tmp-ref/
 .npmrc
 
